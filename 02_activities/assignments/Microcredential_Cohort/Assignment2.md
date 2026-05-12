@@ -47,8 +47,93 @@ There are several tools online you can use, I'd recommend [Draw.io](https://www.
 
 **HINT:** You do not need to create any data for this prompt. This is a conceptual model only. 
 
+For the bookstore, I designed a logical data model with the following main entities and relationships.
+
+**CUSTOMER**  
+Stores basic customer information.
+
+- customer_id (PK)
+- first_name
+- last_name
+- email
+- phone_number
+- created_date_id (FK to DATE)
+
+Each customer links to the DATE table through created_date_id so registration date can be analyzed over time.
+
+**BOOK**  
+Represents books the store sells.
+
+- book_id (PK)
+- isbn
+- title
+- author
+- publication_year
+- list_price
+- category
+- publisher
+
+A book can appear on many orders and order lines.
+
+**EMPLOYEE**  
+Represents bookstore staff.
+
+- employee_id (PK)
+- first_name
+- last_name
+- job_title
+- hire_date_id (FK to DATE)
+- status (active/inactive)
+
+An employee can be responsible for many orders.
+
+**ORDER_HEADER**  
+Captures one customer order at a header level.
+
+- order_id (PK)
+- customer_id (FK to CUSTOMER)
+- order_date_id (FK to DATE)
+- employee_id (FK to EMPLOYEE)
+- order_status
+- payment_method
+
+Each order belongs to one customer and is handled by one employee on a specific order date.
+
+**ORDER_LINE (SALES)**  
+Line‑level details of items on an order.
+
+- order_line_id (PK)
+- order_id (FK to ORDER_HEADER)
+- book_id (FK to BOOK)
+- quantity
+- unit_price
+- line_total
+
+Each order has many order lines, and each order line connects a single book to a single order with its quantity and price.
+
+**DATE (calendar table)**  
+Shared date dimension for reporting.
+
+- date_id (PK)
+- full_date
+- year
+- quarter
+- month
+- day_of_month
+- day_of_week
+- is_weekend
+
+The DATE table is referenced by CUSTOMER (created_date_id), EMPLOYEE (hire_date_id), and ORDER_HEADER (order_date_id) so that time‑based analysis can be done consistently across the model.
+
 #### Prompt 2
 We want to create employee shifts, splitting up the day into morning and evening. Add this to the ERD.
+
+For Prompt 2, I extended the original ERD by adding SHIFT and EMPLOYEE_SHIFT tables.
+
+- SHIFT(shift_id, shift_name, start_time, end_time)
+- EMPLOYEE_SHIFT(employee_shift_id, employee_id, shift_id, shift_date_id)
+
+This allows each employee to work a morning or evening shift on specific dates without duplicating attributes in EMPLOYEE.
 
 #### Prompt 3
 The store wants to keep customer addresses. Propose two architectures for the CUSTOMER_ADDRESS table, one that will retain changes, and another that will overwrite. Which is type 1, which is type 2? 
@@ -56,7 +141,39 @@ The store wants to keep customer addresses. Propose two architectures for the CU
 **HINT:** search type 1 vs type 2 slowly changing dimensions. 
 
 ```
-Your answer...
+For customer addresses, I would consider two different table designs.
+
+**Architecture A - Overwrite (Type 1 SCD)**  
+In this design, the CUSTOMER_ADDRESS table stores only the customer's current address.  
+Example structure:
+
+- customer_address_id (PK)  
+- customer_id (FK to CUSTOMER)  
+- street  
+- city  
+- province_state  
+- postal_code  
+- country  
+- last_updated_timestamp  
+
+When a customer moves, the existing row is updated in place. The old address is replaced by the new one, and only `last_updated_timestamp` changes. This is a Type 1 slowly changing dimension because history is not retained; the table always reflects the latest state. 
+
+**Architecture B - History (Type 2 SCD)**  
+In this design, the CUSTOMER_ADDRESS table stores multiple rows per customer over time.  
+Example structure:
+
+- customer_address_id (PK)  
+- customer_id (FK to CUSTOMER)  
+- street  
+- city  
+- province_state  
+- postal_code  
+- country  
+- valid_from_date  
+- valid_to_date (nullable)  
+- is_current (Y/N flag)  
+
+When a customer moves, the existing "current" row is closed out by setting `valid_to_date` and `is_current = 'N'`, and a new row is inserted with the new address, `valid_from_date` set to the move date, `valid_to_date = NULL`, and `is_current = 'Y'`. This is a Type 2 slowly changing dimension because it preserves the full history of address changes over time.
 ```
 
 ***
